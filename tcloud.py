@@ -46,11 +46,10 @@ time_format = '%Y-%m-%dT%H:%M:%S'
 def parse_simple_chat(export, start_date):
     for entry in (elem for elem in export['messages'] if not isinstance(elem['text'], list)):
         msg_date = datetime.datetime.strptime(entry['date'], time_format)
-        if not start_date:
-            tokenize_line(entry['text'])
-        if start_date and msg_date > start_date:
-            tokenize_line(entry['text'])
-            
+        if start_date and msg_date < start_date:
+            continue
+
+        tokenize_line(entry['text'])
 
 def parse_super_chat(export, start_date):
     for chat in export['chats']['list']:
@@ -70,6 +69,15 @@ def parse_telegram_chat(file_name, start_date):
         parse_simple_chat(export, start_date)
 
 
+def remove_slurs(words):
+    with open('slur.txt', encoding='utf-8') as f:
+        slur = f.read().splitlines()
+        for key in list(words.keys()):
+            if key in slur:
+                del words[key]
+
+        return words
+
 def remove_function_words(words):
     with open('conjunctions.txt', encoding='utf-8') as f:
         conjunctions = f.read().splitlines()
@@ -86,7 +94,10 @@ def remove_function_words(words):
     with open('interjections.txt', encoding='utf-8') as f:
         interjections = f.read().splitlines()
 
-    function_words = prepositions + particles + interjections + pronouns + conjunctions
+    with open('exclusions.txt', encoding='utf-8') as f:
+        exclusions = f.read().splitlines()
+
+    function_words = prepositions + particles + interjections + pronouns + conjunctions + exclusions
     for key in list(words.keys()):
         if key in function_words:
             del words[key]
@@ -100,6 +111,8 @@ def cmd_args():
     parser.add_argument('-c', '--chat', nargs=1, required=True, help='A path to a telegram chat export in JSON.')
     parser.add_argument('-m', '--max', nargs=1, required=False, help='Max number of words to use.')
     parser.add_argument('-ns', '--notshorter', nargs=1, required=False, help='Skip words shorter than N characters.')
+    parser.add_argument('-rs', '--noslure', required=False, action='store_true',
+                        help='Filter slur out.')
     parser.add_argument('-f', '--leavefunc', required=False, action='store_true',
                         help='Leave function words, like pronouns.')
 
@@ -135,6 +148,9 @@ def main():
 
     if not args.leavefunc:
         freq_dict = remove_function_words(freq_dict)
+
+    if args.noslure:
+        freq_dict = remove_slurs(freq_dict)
 
     if len(freq_dict) < 1:
         print("History is empty, cannot generate anything useful.")
