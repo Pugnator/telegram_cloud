@@ -12,8 +12,7 @@ freq_dict = {}
 
 
 def generate_cloud(words):
-    word_freq = {k: v for k, v in sorted(words.items(),reverse=True, key=lambda item: item[1])}
-
+    word_freq = {k: v for k, v in sorted(words.items(), reverse=True, key=lambda item: item[1])}
 
     wc = WordCloud(background_color="white", width=1000, height=1000, max_words=10, relative_scaling=0.5,
                    normalize_plurals=False).generate_from_frequencies(word_freq)
@@ -49,23 +48,18 @@ def parse_telegram_chat(file_name):
 
 
 def remove_function_words(words):
-    conjunctions = []
     with open('conjunctions.txt', encoding='utf-8') as f:
         conjunctions = f.read().splitlines()
 
-    pronouns = []
     with open('pronouns.txt', encoding='utf-8') as f:
         pronouns = f.read().splitlines()
 
-    prepositions = []
     with open('prepositions.txt', encoding='utf-8') as f:
         prepositions = f.read().splitlines()
 
-    particles = []
     with open('particles.txt', encoding='utf-8') as f:
         particles = f.read().splitlines()
 
-    interjections = []
     with open('interjections.txt', encoding='utf-8') as f:
         interjections = f.read().splitlines()
 
@@ -80,15 +74,30 @@ def remove_function_words(words):
 def cmd_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('-c', '--chat', nargs=1, required=True, help='A path to telegram char export in JSON.')
+    parser.add_argument('-ns', '--notshorter', nargs=1, required=False, help='Use words not shorter than N characters.')
+    parser.add_argument('-f', '--leavefunc', required=False, action='store_true',
+                        help='Leave function words, like pronouns.')
     processed_args = parser.parse_args()
     return processed_args
 
 
 def main():
     args = cmd_args()
+
+    if args.notshorter:
+        try:
+            global SKIP_WORD_LESS
+            SKIP_WORD_LESS = int(args.notshorter[0])
+        except ValueError as e:
+            print(e)
+            exit(1)
+
     parse_telegram_chat(args.chat[0])
     global freq_dict
-    freq_dict = remove_function_words(freq_dict)
+
+    if not args.leavefunc:
+        freq_dict = remove_function_words(freq_dict)
+
     generate_cloud(freq_dict)
 
 
