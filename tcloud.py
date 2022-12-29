@@ -1,5 +1,6 @@
 import argparse
 import re
+import datetime
 import matplotlib.pyplot as plt
 from wordcloud import WordCloud
 import json
@@ -38,28 +39,30 @@ def tokenize_line(line):
         word = alphanum_only_pattern.sub('', word)
         calculate_freq(word)
 
-
-def parse_simple_chat(export):
+time_format = '%Y-%m-%dT%H:%M:%S'
+def parse_simple_chat(export, start_date):
     for entry in (elem for elem in export['messages'] if not isinstance(elem['text'], list)):
-        tokenize_line(entry['text'])
+        msg_date = datetime.datetime.strptime(entry['date'], time_format)
+        if msg_date > start_date:
+            tokenize_line(entry['text'])
 
-def parse_super_chat(export):
+def parse_super_chat(export, start_date):
     for chat in export['chats']['list']:
-        parse_simple_chat(chat)
+        parse_simple_chat(chat, start_date)
 
 
 
-def parse_telegram_chat(file_name):
+def parse_telegram_chat(file_name, start_date):
     with open(file_name, encoding='utf-8') as chat_export:
         export = json.load(chat_export)
         if 'chats' in export:
-            return parse_super_chat(export)
+            return parse_super_chat(export, start_date)
 
         if not 'messages' in export:
             print("There is no 'messages' field in your chat export")
             exit(1)
 
-        parse_simple_chat(export)
+        parse_simple_chat(export, start_date)
 
 
 def remove_function_words(words):
@@ -88,6 +91,7 @@ def remove_function_words(words):
 
 def cmd_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument('-d', '--days', nargs=1, required=True, help='Max date from now to take into an account.')
     parser.add_argument('-c', '--chat', nargs=1, required=True, help='A path to a telegram chat export in JSON.')
     parser.add_argument('-m', '--max', nargs=1, required=False, help='Max number of words to use.')
     parser.add_argument('-ns', '--notshorter', nargs=1, required=False, help='Skip words shorter than N characters.')
@@ -109,16 +113,18 @@ def main():
             print(e)
             exit(1)
 
-    maxwords = 100
-
+    max_words = 100
     if args.max:
         try:
-            maxwords = int(args.max[0])
+            max_words = int(args.max[0])
         except ValueError as e:
             print(e)
             exit(1)
 
-    parse_telegram_chat(args.chat[0])
+    if args.days:
+        start_date = datetime.datetime.now() - datetime.timedelta(int(args.days[0]))
+
+    parse_telegram_chat(args.chat[0], start_date)
     global freq_dict
 
     if not args.leavefunc:
@@ -128,7 +134,7 @@ def main():
         print("History is empty, cannot generate anything useful.")
         return
 
-    generate_cloud(freq_dict, maxwords)
+    generate_cloud(freq_dict, max_words)
 
 
 if __name__ == '__main__':
