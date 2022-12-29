@@ -22,7 +22,7 @@ def generate_cloud(words, maxwords):
 
 
 def calculate_freq(word):
-    word = word.strip()
+    word = word.strip().lower()
     if not word: return
     if len(word) <= SKIP_WORD_LESS: return
     global freq_dict
@@ -39,15 +39,27 @@ def tokenize_line(line):
         calculate_freq(word)
 
 
+def parse_simple_chat(export):
+    for entry in (elem for elem in export['messages'] if not isinstance(elem['text'], list)):
+        tokenize_line(entry['text'])
+
+def parse_super_chat(export):
+    for chat in export['chats']['list']:
+        parse_simple_chat(chat)
+
+
+
 def parse_telegram_chat(file_name):
     with open(file_name, encoding='utf-8') as chat_export:
-        chat = json.load(chat_export)
-        if not 'messages' in chat:
+        export = json.load(chat_export)
+        if 'chats' in export:
+            return parse_super_chat(export)
+
+        if not 'messages' in export:
             print("There is no 'messages' field in your chat export")
             exit(1)
 
-        for entry in (elem for elem in chat['messages'] if not isinstance(elem['text'], list)):
-            tokenize_line(entry['text'])
+        parse_simple_chat(export)
 
 
 def remove_function_words(words):
@@ -76,9 +88,9 @@ def remove_function_words(words):
 
 def cmd_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('-c', '--chat', nargs=1, required=True, help='A path to telegram char export in JSON.')
+    parser.add_argument('-c', '--chat', nargs=1, required=True, help='A path to a telegram chat export in JSON.')
     parser.add_argument('-m', '--max', nargs=1, required=False, help='Max number of words to use.')
-    parser.add_argument('-ns', '--notshorter', nargs=1, required=False, help='Use words not shorter than N characters.')
+    parser.add_argument('-ns', '--notshorter', nargs=1, required=False, help='Skip words shorter than N characters.')
     parser.add_argument('-f', '--leavefunc', required=False, action='store_true',
                         help='Leave function words, like pronouns.')
 
@@ -111,6 +123,10 @@ def main():
 
     if not args.leavefunc:
         freq_dict = remove_function_words(freq_dict)
+
+    if len(freq_dict) < 1:
+        print("History is empty, cannot generate anything useful.")
+        return
 
     generate_cloud(freq_dict, maxwords)
 
