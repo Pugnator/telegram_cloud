@@ -39,17 +39,22 @@ def tokenize_line(line):
         word = alphanum_only_pattern.sub('', word)
         calculate_freq(word)
 
+
 time_format = '%Y-%m-%dT%H:%M:%S'
+
+
 def parse_simple_chat(export, start_date):
     for entry in (elem for elem in export['messages'] if not isinstance(elem['text'], list)):
         msg_date = datetime.datetime.strptime(entry['date'], time_format)
-        if msg_date > start_date:
+        if not start_date:
             tokenize_line(entry['text'])
+        if start_date and msg_date > start_date:
+            tokenize_line(entry['text'])
+            
 
 def parse_super_chat(export, start_date):
     for chat in export['chats']['list']:
         parse_simple_chat(chat, start_date)
-
 
 
 def parse_telegram_chat(file_name, start_date):
@@ -91,7 +96,7 @@ def remove_function_words(words):
 
 def cmd_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('-d', '--days', nargs=1, required=True, help='Max date from now to take into an account.')
+    parser.add_argument('-d', '--days', nargs=1, required=False, help='Max date from now to take into an account.')
     parser.add_argument('-c', '--chat', nargs=1, required=True, help='A path to a telegram chat export in JSON.')
     parser.add_argument('-m', '--max', nargs=1, required=False, help='Max number of words to use.')
     parser.add_argument('-ns', '--notshorter', nargs=1, required=False, help='Skip words shorter than N characters.')
@@ -121,6 +126,7 @@ def main():
             print(e)
             exit(1)
 
+    start_date = None
     if args.days:
         start_date = datetime.datetime.now() - datetime.timedelta(int(args.days[0]))
 
