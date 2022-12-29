@@ -42,6 +42,10 @@ def tokenize_line(line):
 def parse_telegram_chat(file_name):
     with open(file_name, encoding='utf-8') as chat_export:
         chat = json.load(chat_export)
+        if not 'messages' in chat:
+            print("There is no 'messages' field in your chat export")
+            exit(1)
+
         for entry in (elem for elem in chat['messages'] if not isinstance(elem['text'], list)):
             tokenize_line(entry['text'])
 
@@ -75,7 +79,8 @@ def cmd_args():
     parser.add_argument('-c', '--chat', nargs=1, required=True, help='A path to telegram char export in JSON.')
     parser.add_argument('-m', '--max', nargs=1, required=False, help='Max number of words to use.')
     parser.add_argument('-ns', '--notshorter', nargs=1, required=False, help='Use words not shorter than N characters.')
-    parser.add_argument('-f', '--leavefunc', required=False, action='store_true', help='Leave function words, like pronouns.')
+    parser.add_argument('-f', '--leavefunc', required=False, action='store_true',
+                        help='Leave function words, like pronouns.')
 
     processed_args = parser.parse_args()
     return processed_args
@@ -92,7 +97,8 @@ def main():
             print(e)
             exit(1)
 
-    maxwords = 10
+    maxwords = 100
+
     if args.max:
         try:
             maxwords = int(args.max[0])
