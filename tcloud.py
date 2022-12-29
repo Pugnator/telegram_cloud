@@ -2,7 +2,6 @@ import argparse
 import re
 import matplotlib.pyplot as plt
 from wordcloud import WordCloud
-import multidict as multidict
 import json
 
 SKIP_WORD_LESS = 5
@@ -11,10 +10,10 @@ alphanum_only_pattern = re.compile('[\W_]+')
 freq_dict = {}
 
 
-def generate_cloud(words):
+def generate_cloud(words, maxwords):
     word_freq = {k: v for k, v in sorted(words.items(), reverse=True, key=lambda item: item[1])}
 
-    wc = WordCloud(background_color="white", width=1000, height=1000, max_words=10, relative_scaling=0.5,
+    wc = WordCloud(background_color="white", width=1000, height=1000, max_words=maxwords, relative_scaling=0.5,
                    normalize_plurals=False).generate_from_frequencies(word_freq)
 
     plt.imshow(wc, interpolation='bilInear')
@@ -74,9 +73,10 @@ def remove_function_words(words):
 def cmd_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('-c', '--chat', nargs=1, required=True, help='A path to telegram char export in JSON.')
+    parser.add_argument('-m', '--max', nargs=1, required=False, help='Max number of words to use.')
     parser.add_argument('-ns', '--notshorter', nargs=1, required=False, help='Use words not shorter than N characters.')
-    parser.add_argument('-f', '--leavefunc', required=False, action='store_true',
-                        help='Leave function words, like pronouns.')
+    parser.add_argument('-f', '--leavefunc', required=False, action='store_true', help='Leave function words, like pronouns.')
+
     processed_args = parser.parse_args()
     return processed_args
 
@@ -92,13 +92,21 @@ def main():
             print(e)
             exit(1)
 
+    maxwords = 10
+    if args.max:
+        try:
+            maxwords = int(args.max[0])
+        except ValueError as e:
+            print(e)
+            exit(1)
+
     parse_telegram_chat(args.chat[0])
     global freq_dict
 
     if not args.leavefunc:
         freq_dict = remove_function_words(freq_dict)
 
-    generate_cloud(freq_dict)
+    generate_cloud(freq_dict, maxwords)
 
 
 if __name__ == '__main__':
