@@ -2,24 +2,38 @@ import argparse
 import re
 import datetime
 import matplotlib.pyplot as plt
+import statistics
+
+import numpy as np
 from wordcloud import WordCloud
 import json
 
 SKIP_WORD_LESS = 5
-
+time_format = '%Y-%m-%dT%H:%M:%S'
 alphanum_only_pattern = re.compile('[\W_]+')
 freq_dict = {}
 
 
 def generate_cloud(words, maxwords):
+    words = remove_outliers(words)
     word_freq = {k: v for k, v in sorted(words.items(), reverse=True, key=lambda item: item[1])}
-
     wc = WordCloud(background_color="white", width=1000, height=1000, max_words=maxwords, relative_scaling=0.5,
                    normalize_plurals=False).generate_from_frequencies(word_freq)
 
     plt.imshow(wc, interpolation='bilInear')
     plt.axis('off')
     plt.show()
+
+
+def remove_outliers(words):
+    mean = statistics.mean(words.values())
+    filtered = {k: v for k, v in words.items() if (v > mean)}
+    mean = statistics.mean(filtered.values())
+    std = statistics.stdev(filtered.values())
+
+    filtered = {k: v for k, v in filtered.items() if (v > mean - 2 * std)}
+    filtered = {k: v for k, v in filtered.items() if (v < mean + 2 * std)}
+    return filtered
 
 
 def calculate_freq(word):
@@ -30,7 +44,7 @@ def calculate_freq(word):
     if word not in freq_dict:
         freq_dict[word] = 1
     else:
-        freq_dict[word] = freq_dict[word] + 1
+        freq_dict[word] += 1
 
 
 def tokenize_line(line):
@@ -40,9 +54,6 @@ def tokenize_line(line):
         calculate_freq(word)
 
 
-time_format = '%Y-%m-%dT%H:%M:%S'
-
-
 def parse_simple_chat(export, start_date):
     for entry in (elem for elem in export['messages'] if not isinstance(elem['text'], list)):
         msg_date = datetime.datetime.strptime(entry['date'], time_format)
@@ -50,6 +61,7 @@ def parse_simple_chat(export, start_date):
             continue
 
         tokenize_line(entry['text'])
+
 
 def parse_super_chat(export, start_date):
     for chat in export['chats']['list']:
@@ -77,6 +89,7 @@ def remove_slurs(words):
                 del words[key]
 
         return words
+
 
 def remove_function_words(words):
     with open('conjunctions.txt', encoding='utf-8') as f:
